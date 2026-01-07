@@ -89,6 +89,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="add-score" />
             <Stack.Screen name="score/[id]" />
+            <Stack.Screen name="analysis/[scoreId]" />
             <Stack.Screen name="oauth/callback" />
           </Stack>
           <StatusBar style="auto" />

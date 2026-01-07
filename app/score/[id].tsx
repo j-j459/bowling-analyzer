@@ -1,5 +1,5 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { useRouter, useLocalSearchParams, Link } from "expo-router";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -145,6 +145,15 @@ export default function ScoreDetailScreen() {
                 ))}
               </View>
             </View>
+
+            {/* Analysis Button */}
+            <Link href={`/analysis/${score.id}`} asChild>
+              <TouchableOpacity className="bg-primary py-4 rounded-xl active:opacity-80">
+                <Text className="text-center font-semibold text-background text-base">
+                  📊 詳細分析を見る
+                </Text>
+              </TouchableOpacity>
+            </Link>
           </View>
         </View>
       </ScrollView>

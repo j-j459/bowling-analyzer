@@ -48,6 +48,17 @@ export const scores = mysqlTable("scores", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// Pin positions in bowling (standard 1-10 numbering)
+// 7 8 9 10
+//  4 5 6
+//   2 3
+//    1
+export interface PinData {
+  pinNumber: number; // 1-10
+  knocked: boolean; // Whether this pin was knocked down
+  order?: number; // Order in which pin was knocked down
+}
+
 // Frame data structure (stored as JSON in scores.frames)
 export interface Frame {
   frameNumber: number; // 1-10
@@ -58,6 +69,8 @@ export interface Frame {
   isStrike: boolean;
   isSpare: boolean;
   remainingPins?: number[]; // Array of remaining pin positions after first throw (1-10)
+  firstThrowPins?: PinData[]; // Detailed pin data for first throw
+  secondThrowPins?: PinData[]; // Detailed pin data for second throw
 }
 
 // Export types for TypeScript
