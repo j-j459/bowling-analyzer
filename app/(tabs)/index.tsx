@@ -1,4 +1,5 @@
 import { FlatList, Text, View, TouchableOpacity, RefreshControl, ActivityIndicator } from "react-native";
+import React from "react";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -10,6 +11,13 @@ export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
+
+  // Redirect to login if not authenticated
+  React.useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, authLoading, router]);
   
   const { data: scores, isLoading, refetch } = trpc.scores.list.useQuery(undefined, {
     enabled: isAuthenticated,
