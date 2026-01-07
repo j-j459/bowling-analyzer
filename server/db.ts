@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, scores, InsertScore } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,150 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+/**
+ * Get all scores for a specific user
+ */
+export async function getUserScores(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(scores)
+    .where(eq(scores.userId, userId))
+    .orderBy(desc(scores.date));
+}
+
+/**
+ * Get scores within a date range
+ */
+export async function getUserScoresInRange(
+  userId: number,
+  startDate: Date,
+  endDate: Date
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(scores)
+    .where(
+      and(
+        eq(scores.userId, userId),
+        gte(scores.date, startDate),
+        lte(scores.date, endDate)
+      )
+    )
+    .orderBy(desc(scores.date));
+}
+
+/**
+ * Get a single score by ID
+ */
+export async function getScoreById(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(scores)
+    .where(and(eq(scores.id, id), eq(scores.userId, userId)))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+/**
+ * Create a new score
+ */
+export async function createScore(data: InsertScore) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(scores).values(data);
+  return Number(result[0].insertId);
+}
+
+/**
+ * Update an existing score
+ */
+export async function updateScore(
+  id: number,
+  userId: number,
+  data: Partial<InsertScore>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(scores)
+    .set({ ...data, updatedAt: new Date() })
+    .where(and(eq(scores.id, id), eq(scores.userId, userId)));
+}
+
+/**
+ * Delete a score
+ */
+export async function deleteScore(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(scores).where(and(eq(scores.id, id), eq(scores.userId, userId)));
+}
+
+/**
+ * Get statistics for a user
+ */
+export async function getUserStatistics(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const userScores = await getUserScores(userId);
+
+  if (userScores.length === 0) {
+    return {
+      totalGames: 0,
+      averageScore: 0,
+      highestScore: 0,
+      lowestScore: 0,
+      totalStrikes: 0,
+      totalSpares: 0,
+      strikeRate: 0,
+      spareRate: 0,
+    };
+  }
+
+  const totalGames = userScores.length;
+  const totalScore = userScores.reduce((sum, score) => sum + score.totalScore, 0);
+  const averageScore = Math.round(totalScore / totalGames);
+  const highestScore = Math.max(...userScores.map((s) => s.totalScore));
+  const lowestScore = Math.min(...userScores.map((s) => s.totalScore));
+
+  // Calculate strikes and spares
+  let totalStrikes = 0;
+  let totalSpares = 0;
+  let totalFrames = 0;
+
+  userScores.forEach((score) => {
+    score.frames.forEach((frame) => {
+      totalFrames++;
+      if (frame.isStrike) totalStrikes++;
+      if (frame.isSpare) totalSpares++;
+    });
+  });
+
+  const strikeRate = totalFrames > 0 ? (totalStrikes / totalFrames) * 100 : 0;
+  const spareRate = totalFrames > 0 ? (totalSpares / totalFrames) * 100 : 0;
+
+  return {
+    totalGames,
+    averageScore,
+    highestScore,
+    lowestScore,
+    totalStrikes,
+    totalSpares,
+    strikeRate: Math.round(strikeRate * 10) / 10,
+    spareRate: Math.round(spareRate * 10) / 10,
+  };
+}
