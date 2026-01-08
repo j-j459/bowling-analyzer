@@ -7,6 +7,7 @@ import * as db from "./db";
 import { Frame } from "../drizzle/schema";
 import { invokeLLM } from "./_core/llm";
 import { storagePut } from "./storage";
+import { extractBowlingScoresFromImage } from "./ocr-service";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -193,6 +194,18 @@ Rules:
         const data = JSON.parse(content);
 
         return data;
+      }),
+
+    // Analyze multiple scores from a single image
+    analyzeMultipleScores: protectedProcedure
+      .input(
+        z.object({
+          imageUrl: z.string().url(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const result = await extractBowlingScoresFromImage(input.imageUrl);
+        return result;
       }),
   }),
 });

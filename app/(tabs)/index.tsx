@@ -1,6 +1,6 @@
 import { FlatList, Text, View, TouchableOpacity, RefreshControl, ActivityIndicator } from "react-native";
 import React from "react";
-import { useRouter } from "expo-router";
+import { useRouter, Link } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -123,8 +123,8 @@ export default function HomeScreen() {
           />
         )}
 
-        {/* Add Score Button */}
-        <View className="absolute bottom-6 left-6 right-6">
+        {/* Add Score Buttons */}
+        <View className="absolute bottom-6 left-6 right-6 gap-3">
           <TouchableOpacity
             onPress={handleAddScore}
             style={{ backgroundColor: colors.primary }}
@@ -132,9 +132,19 @@ export default function HomeScreen() {
           >
             <IconSymbol name="plus.circle.fill" size={24} color={colors.background} />
             <Text className="text-base font-semibold ml-2" style={{ color: colors.background }}>
-              新しいスコアを追加
+              スコアを追加
             </Text>
           </TouchableOpacity>
+          <Link href="/batch-scores" asChild>
+            <TouchableOpacity
+              style={{ borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface }}
+              className="flex-row items-center justify-center py-4 rounded-full active:opacity-80"
+            >
+              <Text className="text-base font-semibold" style={{ color: colors.foreground }}>
+                📄 複数スコアを一括登録
+              </Text>
+            </TouchableOpacity>
+          </Link>
         </View>
       </View>
     </ScreenContainer>
