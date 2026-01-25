@@ -1,20 +1,27 @@
-import React, { useMemo } from "react";
-import { ScrollView, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { BowlingLane } from "@/components/bowling-lane";
+import { CourseSuggestionView } from "@/components/bowling-course-suggestion";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import {
   calculatePinSuccessRates,
-  analyzeAreas,
   getAnalysisRecommendations,
   calculateStrikeSpareStats,
 } from "@/lib/bowling-analysis";
+import {
+  analyzeAreasRefined,
+  getCourseSuggestion,
+} from "@/lib/bowling-logic";
+import { Frame } from "@/drizzle/schema";
 
 export default function AnalysisScreen() {
   const colors = useColors();
   const { scoreId } = useLocalSearchParams<{ scoreId: string }>();
+  const [selectedFrame, setSelectedFrame] = useState<Frame | null>(null);
+
   const { data: score, isLoading } = trpc.scores.get.useQuery(
     { id: parseInt(scoreId || "0") },
     { enabled: !!scoreId }
@@ -24,7 +31,8 @@ export default function AnalysisScreen() {
     if (!score?.frames) return null;
 
     const pinRates = calculatePinSuccessRates(score.frames);
-    const areas = analyzeAreas(pinRates);
+    // Use the refined logic for correct percentages
+    const areas = analyzeAreasRefined(score.frames);
     const recommendations = getAnalysisRecommendations(areas);
     const strikeSpareStats = calculateStrikeSpareStats(score.frames);
 
@@ -35,6 +43,13 @@ export default function AnalysisScreen() {
       strikeSpareStats,
     };
   }, [score?.frames]);
+
+  const suggestion = useMemo(() => {
+    if (!selectedFrame || selectedFrame.isStrike) return null;
+    const remaining = selectedFrame.remainingPins || [];
+    if (remaining.length === 0) return null;
+    return getCourseSuggestion(remaining);
+  }, [selectedFrame]);
 
   if (isLoading) {
     return (
@@ -54,7 +69,7 @@ export default function AnalysisScreen() {
 
   return (
     <ScreenContainer className="p-4">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}>
         <View className="gap-6">
           {/* Header */}
           <View className="gap-2">
@@ -114,7 +129,20 @@ export default function AnalysisScreen() {
             </View>
           </View>
 
-          {/* Area Analysis */}
+          {/* Course Suggestion (Active) */}
+          {selectedFrame && suggestion && (
+            <View className="gap-2">
+              <Text className="text-lg font-bold text-primary">
+                F{selectedFrame.frameNumber} の攻略アドバイス
+              </Text>
+              <CourseSuggestionView
+                suggestion={suggestion}
+                remainingPins={selectedFrame.remainingPins || []}
+              />
+            </View>
+          )}
+
+          {/* Area Analysis (Fixed Logic) */}
           <View
             className="bg-surface rounded-lg p-4 gap-3"
             style={{ borderColor: colors.border, borderWidth: 1 }}
@@ -134,7 +162,9 @@ export default function AnalysisScreen() {
                       {area.area}
                     </Text>
                     <Text className="text-xs text-muted">
-                      成功率: {(area.successRate * 100).toFixed(0)}%
+                      {area.successRate !== null
+                        ? `成功率: ${(area.successRate * 100).toFixed(0)}% (${area.successCount}/${area.totalAttempts})`
+                        : "データなし (-)"}
                     </Text>
                   </View>
                   <View
@@ -145,7 +175,7 @@ export default function AnalysisScreen() {
                           ? colors.success
                           : area.assessment === "普通"
                             ? colors.warning
-                            : colors.error,
+                            : area.assessment === "苦手" ? colors.error : colors.muted,
                     }}
                   >
                     <Text className="text-xs font-semibold text-background">
@@ -160,56 +190,62 @@ export default function AnalysisScreen() {
           {/* Recommendations */}
           {(analysis.recommendations.strengths.length > 0 ||
             analysis.recommendations.weaknesses.length > 0) && (
-            <View
-              className="bg-surface rounded-lg p-4 gap-3"
-              style={{ borderColor: colors.border, borderWidth: 1 }}
-            >
-              <Text className="text-lg font-semibold text-foreground">
-                分析結果
-              </Text>
+              <View
+                className="bg-surface rounded-lg p-4 gap-3"
+                style={{ borderColor: colors.border, borderWidth: 1 }}
+              >
+                <Text className="text-lg font-semibold text-foreground">
+                  分析結果から
+                </Text>
 
-              {analysis.recommendations.strengths.length > 0 && (
-                <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">
-                    💪 得意な点
-                  </Text>
-                  {analysis.recommendations.strengths.map((strength, idx) => (
-                    <Text key={idx} className="text-sm text-foreground pl-2">
-                      • {strength}
+                {analysis.recommendations.strengths.length > 0 && (
+                  <View className="gap-2">
+                    <Text className="text-sm font-medium text-foreground">
+                      💪 得意な点
                     </Text>
-                  ))}
-                </View>
-              )}
+                    {analysis.recommendations.strengths.map((strength, idx) => (
+                      <Text key={idx} className="text-sm text-foreground pl-2">
+                        • {strength}
+                      </Text>
+                    ))}
+                  </View>
+                )}
 
-              {analysis.recommendations.weaknesses.length > 0 && (
-                <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">
-                    🎯 改善ポイント
-                  </Text>
-                  {analysis.recommendations.weaknesses.map((weakness, idx) => (
-                    <Text key={idx} className="text-sm text-foreground pl-2">
-                      • {weakness}
+                {analysis.recommendations.weaknesses.length > 0 && (
+                  <View className="gap-2">
+                    <Text className="text-sm font-medium text-foreground">
+                      🎯 改善ポイント
                     </Text>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
+                    {analysis.recommendations.weaknesses.map((weakness, idx) => (
+                      <Text key={idx} className="text-sm text-foreground pl-2">
+                        • {weakness}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
 
-          {/* Frame Details */}
+          {/* Frame Details (Interactive) */}
           <View
             className="bg-surface rounded-lg p-4 gap-3"
             style={{ borderColor: colors.border, borderWidth: 1 }}
           >
-            <Text className="text-lg font-semibold text-foreground">
-              フレーム別詳細
-            </Text>
+            <View className="flex-row justify-between items-center">
+              <Text className="text-lg font-semibold text-foreground">
+                フレーム別詳細
+              </Text>
+              <Text className="text-xs text-primary">※タップで攻略法を表示</Text>
+            </View>
+
             <View className="gap-2">
               {score.frames.map((frame) => (
-                <View
+                <TouchableOpacity
                   key={frame.frameNumber}
-                  className="flex-row items-center justify-between p-2 rounded"
-                  style={{ backgroundColor: colors.background }}
+                  onPress={() => setSelectedFrame(frame)}
+                  activeOpacity={0.7}
+                  className={`flex-row items-center justify-between p-2 rounded border ${selectedFrame?.frameNumber === frame.frameNumber ? "border-primary bg-primary/10" : "border-transparent"}`}
+                  style={{ backgroundColor: selectedFrame?.frameNumber === frame.frameNumber ? undefined : colors.background }}
                 >
                   <Text className="text-sm font-medium text-foreground w-12">
                     F{frame.frameNumber}
@@ -246,7 +282,7 @@ export default function AnalysisScreen() {
                   <Text className="text-sm font-semibold text-foreground w-12 text-right">
                     {frame.score}
                   </Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </View>

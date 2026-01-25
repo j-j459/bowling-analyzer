@@ -9,8 +9,8 @@ export interface PinSuccessRate {
 
 export interface AreaAnalysis {
   area: string;
-  successRate: number;
-  assessment: "得意" | "普通" | "苦手";
+  successRate: number | null;
+  assessment: "得意" | "普通" | "苦手" | "データなし";
 }
 
 /**
@@ -110,12 +110,12 @@ export function getAnalysisRecommendations(areas: AreaAnalysis[]): {
   weaknesses: string[];
 } {
   const strengths = areas
-    .filter((a) => a.assessment === "得意")
-    .map((a) => `${a.area}は得意です（成功率: ${(a.successRate * 100).toFixed(0)}%）`);
+    .filter((a) => a.assessment === "得意" && a.successRate !== null)
+    .map((a) => `${a.area}は得意です（成功率: ${(a.successRate! * 100).toFixed(0)}%）`);
 
   const weaknesses = areas
-    .filter((a) => a.assessment === "苦手")
-    .map((a) => `${a.area}を改善する必要があります（成功率: ${(a.successRate * 100).toFixed(0)}%）`);
+    .filter((a) => a.assessment === "苦手" && a.successRate !== null)
+    .map((a) => `${a.area}を改善する必要があります（成功率: ${(a.successRate! * 100).toFixed(0)}%）`);
 
   return { strengths, weaknesses };
 }
